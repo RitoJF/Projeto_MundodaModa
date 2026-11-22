@@ -6,14 +6,14 @@ import pandas as pd
 import streamlit as st
 
 
-# Configuração da página
+
 st.set_page_config(
     page_title="MundoModa | Faturamento",
     page_icon="👜",
     layout="wide",
 )
 
-# Aparência escura inspirada na referência, sem alterar os dados ou os gráficos
+
 st.markdown(
     """
     <style>
@@ -121,7 +121,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Mantém o fundo, textos e grades dos gráficos coerentes com a página escura
+
 plt.rcParams.update(
     {
         "figure.facecolor": "#0e1117",
@@ -137,7 +137,7 @@ plt.rcParams.update(
     }
 )
 
-# Como app.py fica dentro de dashboard, subimos um nível para chegar à raiz
+
 projeto = Path(__file__).resolve().parent.parent
 arquivo_csv = (
     projeto
@@ -146,7 +146,7 @@ arquivo_csv = (
     / "faturamento_todos_anos.csv"
 )
 
-# Lê os dados e reconhece a coluna data como datas
+
 df = pd.read_csv(arquivo_csv, parse_dates=["data"])
 
 nomes_meses = [
@@ -155,10 +155,10 @@ nomes_meses = [
     "Setembro", "Outubro", "Novembro", "Dezembro",
 ]
 
-# O relatório de 2026 ainda está disponível somente até julho
+
 ultimo_mes_disponivel_por_ano = {2026: 7}
 
-# Formato dos valores nos cartões
+
 def formatar_reais(valor):
     return (
         f"R$ {valor:,.2f}"
@@ -168,12 +168,12 @@ def formatar_reais(valor):
     )
 
 
-# Formato dos valores no eixo dos gráficos
+
 def formatar_eixo_reais(valor, posicao):
     return f"R$ {valor:,.0f}".replace(",", ".")
 
 
-# Título centralizado e descrição
+
 st.markdown(
     '<h1 class="dashboard-title">Faturamento da loja Mundo da Moda</h1>',
     unsafe_allow_html=True,
@@ -183,7 +183,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Filtro de ano na barra lateral
+
 anos_disponiveis = sorted(df["ano"].unique())
 indice_ano_inicial = (
     anos_disponiveis.index(2026)
@@ -204,20 +204,20 @@ mes_selecionado = nomes_meses.index(mes_selecionado_nome) + 1
 
 df_ano = df[df["ano"] == ano_selecionado]
 
-# Soma o faturamento por mês
+
 faturamento_mensal = (
     df_ano.groupby("mes")["faturamento"]
     .sum()
     .reindex(range(1, 13), fill_value=0)
 )
 
-# Em 2026, o relatório contém dados somente até julho
+
 if ano_selecionado in ultimo_mes_disponivel_por_ano:
     ultimo_mes = ultimo_mes_disponivel_por_ano[ano_selecionado]
     faturamento_mensal = faturamento_mensal.loc[1:ultimo_mes]
     st.info("Os dados de 2026 estão disponíveis de janeiro a julho.")
 
-# Indicadores no topo
+
 faturamento_total = faturamento_mensal.sum()
 media_mensal = faturamento_mensal.mean()
 melhor_mes_numero = faturamento_mensal.idxmax()
@@ -243,7 +243,7 @@ coluna3.metric(
 
 st.divider()
 
-# Gráfico 1: faturamento mensal
+
 coluna_mensal, coluna_trimestral = st.columns(2)
 
 with coluna_mensal:
@@ -272,7 +272,7 @@ with coluna_mensal:
     st.pyplot(fig_mensal, use_container_width=True)
     plt.close(fig_mensal)
 
-# Gráfico 2: faturamento por trimestre
+
 with coluna_trimestral:
     st.subheader("Faturamento por trimestre")
 
@@ -319,7 +319,7 @@ with coluna_trimestral:
 
 st.divider()
 
-# Gráfico 3: compara o padrão mensal entre os anos
+
 st.subheader("Comparação mensal entre os anos")
 
 faturamento_por_ano_mes = (
@@ -332,7 +332,7 @@ fig_comparacao, ax_comparacao = plt.subplots(figsize=(12, 5))
 for ano, dados_ano in faturamento_por_ano_mes.groupby("ano"):
     dados_ano = dados_ano.sort_values("mes")
 
-    # Não desenha meses ainda indisponíveis no relatório de 2026
+    
     if ano in ultimo_mes_disponivel_por_ano:
         ultimo_mes = ultimo_mes_disponivel_por_ano[ano]
         dados_ano = dados_ano[dados_ano["mes"] <= ultimo_mes]
@@ -364,11 +364,11 @@ st.caption(
 
 st.divider()
 
-# Análise dos dias do mês selecionado, usando todos os anos disponíveis
+
 st.subheader(f"Faturamento por dia de {mes_selecionado_nome.lower()}")
 dados_mes = df[df["mes"] == mes_selecionado].copy()
 
-# Não inclui meses que ainda não aparecem nos relatórios parciais
+
 for ano_parcial, ultimo_mes in ultimo_mes_disponivel_por_ano.items():
     if mes_selecionado > ultimo_mes:
         dados_mes = dados_mes[dados_mes["ano"] != ano_parcial]
@@ -412,7 +412,7 @@ else:
 
 st.divider()
 
-# Sazonalidade: usa anos completos para não considerar meses futuros de 2026 como zero
+
 st.subheader("Sazonalidade e planejamento de estoque")
 df_anos_completos = df[~df["ano"].isin(ultimo_mes_disponivel_por_ano)]
 

@@ -1,4 +1,4 @@
-# Projeto MundoModa
+# Projeto Mundo da Moda
 
 Dashboard de faturamento da loja a partir de relatórios em PDF.
 
