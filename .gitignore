@@ -1,0 +1,4 @@
+/dados/originais/*.pdf
+/dados/processados/faturamento_todos_anos.csv
+__pycache__/
+.venv/
