@@ -22,7 +22,7 @@ Executar 01 → 02 → 03 → 04. As tarefas 05 e 06 podem ser realizadas depois
 Marcar cada critério somente após verificar o comportamento descrito.
 Os números esperados abaixo são critérios a validar durante a implementação.
 
-Próxima tarefa: **03 — Calcular a cobertura do painel a partir dos dados**.
+Próxima tarefa: **04 — Esclarecer o gráfico diário e analisar dias da semana**.
 
 ## Task 01 — Respeitar a cobertura informada no PDF
 
@@ -76,7 +76,7 @@ Comparar automaticamente os totais mensais e gerais extraídos com os valores im
 
 ## Task 03 — Calcular a cobertura do painel a partir dos dados
 
-Status: pendente.
+Status: concluída na branch `task/03-cobertura-dashboard`.
 
 Depende da Task 01. Arquivo principal: dashboard/app.py
 
@@ -84,9 +84,24 @@ Usar as datas cobertas para determinar os períodos disponíveis e detectar mese
 
 ### Critérios de aceite
 
-- [ ] A cobertura aparece no painel. Agosto de 2026 aparece como parcial quando exibido, e setembro a dezembro de 2026 não aparecem como faturamento zero.
-- [ ] Comparações mensais lado a lado usam meses completos ou exibem períodos parciais com identificação explícita. Uma comparação de acumulado usa a mesma janela nos dois anos.
-- [ ] A sazonalidade histórica inclui apenas anos completos. Quando um relatório atualizado amplia a cobertura, os novos períodos ficam disponíveis sem alteração no painel.
+- [x] A cobertura aparece no painel. Agosto de 2026 aparece como parcial quando exibido, e setembro a dezembro de 2026 não aparecem como faturamento zero.
+- [x] Comparações mensais lado a lado usam meses completos ou exibem períodos parciais com identificação explícita. Uma comparação de acumulado usa a mesma janela nos dois anos.
+- [x] A sazonalidade histórica inclui apenas anos completos. Quando um relatório atualizado amplia a cobertura, os novos períodos ficam disponíveis sem alteração no painel.
+
+### Validação realizada
+
+- `.venv/bin/python -m unittest discover -s tests -v`: 18 testes passaram,
+  incluindo seis testes de cobertura e execução do painel com AppTest.
+- O painel abriu com a base real sem exceções: cobertura de 01/01/2026 a
+  01/08/2026, com 213 dias cobertos.
+- Agosto e o terceiro trimestre de 2026 aparecem como parciais; meses sem
+  dados não aparecem como barras ou opções de filtro do ano selecionado.
+- A comparação mensal usa somente meses completos e deixa lacunas nos
+  períodos restantes. O painel não apresenta comparação de acumulados.
+- A média mensal considera somente meses completos. Os demais indicadores
+  incluem os valores efetivamente cobertos e identificam meses parciais.
+- Simulações de 2027 parcial e completo atualizaram os filtros e a inclusão
+  na sazonalidade. Ano bissexto e lacunas de datas também foram testados.
 
 ## Task 04 — Esclarecer o gráfico diário e analisar dias da semana
 

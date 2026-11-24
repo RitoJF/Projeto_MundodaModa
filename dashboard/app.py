@@ -5,6 +5,8 @@ from matplotlib.ticker import FuncFormatter
 import pandas as pd
 import streamlit as st
 
+from dashboard.cobertura import resumir_periodos
+
 
 
 st.set_page_config(
@@ -156,7 +158,8 @@ nomes_meses = [
 ]
 
 
-ultimo_mes_disponivel_por_ano = {2026: 7}
+resumo_mensal = resumir_periodos(df, "M")
+resumo_anual = resumir_periodos(df, "Y")
 
 
 def formatar_reais(valor):
@@ -185,43 +188,41 @@ st.markdown(
 
 
 anos_disponiveis = sorted(df["ano"].unique())
-indice_ano_inicial = (
-    anos_disponiveis.index(2026)
-    if 2026 in anos_disponiveis
-    else len(anos_disponiveis) - 1
-)
+indice_ano_inicial = len(anos_disponiveis) - 1
 ano_selecionado = st.sidebar.selectbox(
     "Selecione o ano",
     anos_disponiveis,
     index=indice_ano_inicial,
 )
 
+df_ano = df[df["ano"] == ano_selecionado]
+meses_ano = resumo_mensal[resumo_mensal.index.year == ano_selecionado]
+meses_disponiveis = [nomes_meses[periodo.month - 1] for periodo in meses_ano.index]
 mes_selecionado_nome = st.sidebar.selectbox(
     "Mês para análise diária",
-    nomes_meses,
+    meses_disponiveis,
 )
 mes_selecionado = nomes_meses.index(mes_selecionado_nome) + 1
 
-df_ano = df[df["ano"] == ano_selecionado]
-
-
-faturamento_mensal = (
-    df_ano.groupby("mes")["faturamento"]
-    .sum()
-    .reindex(range(1, 13), fill_value=0)
+cobertura_ano = resumo_anual.loc[pd.Period(str(ano_selecionado), freq="Y")]
+status_ano = "ano completo" if cobertura_ano["completo"] else "ano parcial"
+st.info(
+    f"Cobertura de {ano_selecionado}: "
+    f"{cobertura_ano['inicio']:%d/%m/%Y} a {cobertura_ano['fim']:%d/%m/%Y} "
+    f"({status_ano}; {cobertura_ano['dias_cobertos']} dias cobertos)."
 )
+st.caption("Períodos parciais incluem somente os dias cobertos pelos relatórios.")
 
-
-if ano_selecionado in ultimo_mes_disponivel_por_ano:
-    ultimo_mes = ultimo_mes_disponivel_por_ano[ano_selecionado]
-    faturamento_mensal = faturamento_mensal.loc[1:ultimo_mes]
-    st.info("Os dados de 2026 estão disponíveis de janeiro a julho.")
-
+faturamento_mensal = meses_ano.set_axis(meses_ano.index.month)["faturamento"]
+rotulos_meses = [
+    nomes_meses[periodo.month - 1] + (" (parcial)" if not linha["completo"] else "")
+    for periodo, linha in meses_ano.iterrows()
+]
 
 faturamento_total = faturamento_mensal.sum()
-media_mensal = faturamento_mensal.mean()
+media_mensal = meses_ano.loc[meses_ano["completo"], "faturamento"].mean()
 melhor_mes_numero = faturamento_mensal.idxmax()
-melhor_mes_nome = nomes_meses[melhor_mes_numero - 1]
+melhor_mes_nome = rotulos_meses[list(faturamento_mensal.index).index(melhor_mes_numero)]
 
 coluna1, coluna2, coluna3 = st.columns(3)
 
@@ -231,8 +232,8 @@ coluna1.metric(
 )
 
 coluna2.metric(
-    "Média mensal no período",
-    formatar_reais(media_mensal),
+    "Média dos meses completos",
+    formatar_reais(media_mensal) if pd.notna(media_mensal) else "Sem mês completo",
 )
 
 coluna3.metric(
@@ -258,7 +259,7 @@ with coluna_mensal:
     )
     ax_mensal.set_xticks(faturamento_mensal.index)
     ax_mensal.set_xticklabels(
-        [nomes_meses[numero - 1] for numero in faturamento_mensal.index],
+        rotulos_meses,
         rotation=35,
         ha="right",
     )
@@ -276,24 +277,14 @@ with coluna_mensal:
 with coluna_trimestral:
     st.subheader("Faturamento por trimestre")
 
-    faturamento_trimestral = (
-        df_ano.assign(trimestre=df_ano["data"].dt.quarter)
-        .groupby("trimestre")["faturamento"]
-        .sum()
-        .reindex(range(1, 5), fill_value=0)
-    )
-
-    if ano_selecionado in ultimo_mes_disponivel_por_ano:
-        ultimo_trimestre = (ultimo_mes_disponivel_por_ano[ano_selecionado] - 1) // 3 + 1
-        faturamento_trimestral = faturamento_trimestral.loc[1:ultimo_trimestre]
-
+    trimestres_ano = resumir_periodos(df_ano, "Q")
+    faturamento_trimestral = trimestres_ano.set_axis(
+        trimestres_ano.index.quarter
+    )["faturamento"]
     nomes_trimestres = [
-        f"{numero}º trimestre"
-        for numero in faturamento_trimestral.index
+        f"{periodo.quarter}º trimestre" + (" (parcial)" if not linha["completo"] else "")
+        for periodo, linha in trimestres_ano.iterrows()
     ]
-
-    if ano_selecionado in ultimo_mes_disponivel_por_ano:
-        nomes_trimestres[-1] += " *"
 
     fig_trimestral, ax_trimestral = plt.subplots(figsize=(9, 5))
 
@@ -314,31 +305,24 @@ with coluna_trimestral:
     st.pyplot(fig_trimestral, use_container_width=True)
     plt.close(fig_trimestral)
 
-    if ano_selecionado in ultimo_mes_disponivel_por_ano:
-        st.caption("* Terceiro trimestre parcial: inclui somente julho.")
 
 st.divider()
 
 
 st.subheader("Comparação mensal entre os anos")
 
-faturamento_por_ano_mes = (
-    df.groupby(["ano", "mes"], as_index=False)["faturamento"]
-    .sum()
-)
+faturamento_por_ano_mes = resumo_mensal[resumo_mensal["completo"]].copy()
+faturamento_por_ano_mes["ano"] = faturamento_por_ano_mes.index.year
+faturamento_por_ano_mes["mes"] = faturamento_por_ano_mes.index.month
 
 fig_comparacao, ax_comparacao = plt.subplots(figsize=(12, 5))
 
 for ano, dados_ano in faturamento_por_ano_mes.groupby("ano"):
-    dados_ano = dados_ano.sort_values("mes")
+    dados_ano = dados_ano.set_index("mes").reindex(range(1, 13))
 
     
-    if ano in ultimo_mes_disponivel_por_ano:
-        ultimo_mes = ultimo_mes_disponivel_por_ano[ano]
-        dados_ano = dados_ano[dados_ano["mes"] <= ultimo_mes]
-
     ax_comparacao.plot(
-        dados_ano["mes"],
+        dados_ano.index,
         dados_ano["faturamento"],
         marker="o",
         linewidth=2,
@@ -352,14 +336,16 @@ ax_comparacao.yaxis.set_major_formatter(
 )
 ax_comparacao.set_ylabel("Faturamento")
 ax_comparacao.grid(alpha=0.25)
-ax_comparacao.legend(title="Ano")
+if not faturamento_por_ano_mes.empty:
+    ax_comparacao.legend(title="Ano")
 fig_comparacao.tight_layout()
 
 st.pyplot(fig_comparacao, use_container_width=True)
 plt.close(fig_comparacao)
 
 st.caption(
-    "A linha de 2026 mostra somente janeiro a julho, conforme os dados disponíveis."
+    "A comparação usa somente meses completos de cada ano. "
+    "Meses parciais ou sem cobertura não entram nas linhas nem são tratados como zero."
 )
 
 st.divider()
@@ -368,10 +354,6 @@ st.divider()
 st.subheader(f"Faturamento por dia de {mes_selecionado_nome.lower()}")
 dados_mes = df[df["mes"] == mes_selecionado].copy()
 
-
-for ano_parcial, ultimo_mes in ultimo_mes_disponivel_por_ano.items():
-    if mes_selecionado > ultimo_mes:
-        dados_mes = dados_mes[dados_mes["ano"] != ano_parcial]
 
 media_por_dia = dados_mes.groupby("dia")["faturamento"].mean().sort_index()
 
@@ -414,7 +396,8 @@ st.divider()
 
 
 st.subheader("Sazonalidade e planejamento de estoque")
-df_anos_completos = df[~df["ano"].isin(ultimo_mes_disponivel_por_ano)]
+anos_completos = resumo_anual.index[resumo_anual["completo"]].year
+df_anos_completos = df[df["ano"].isin(anos_completos)]
 
 if df_anos_completos.empty:
     st.warning("São necessários dados de anos completos para analisar a sazonalidade.")
