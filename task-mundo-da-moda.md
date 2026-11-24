@@ -22,7 +22,7 @@ Executar 01 → 02 → 03 → 04. As tarefas 05 e 06 podem ser realizadas depois
 Marcar cada critério somente após verificar o comportamento descrito.
 Os números esperados abaixo são critérios a validar durante a implementação.
 
-Próxima tarefa: **04 — Esclarecer o gráfico diário e analisar dias da semana**.
+Próxima tarefa: **05 — Ajustar o texto de sazonalidade e estoque**.
 
 ## Task 01 — Respeitar a cobertura informada no PDF
 
@@ -105,7 +105,7 @@ Usar as datas cobertas para determinar os períodos disponíveis e detectar mese
 
 ## Task 04 — Esclarecer o gráfico diário e analisar dias da semana
 
-Status: pendente.
+Status: concluída na branch `task/04-analise-dias`.
 
 Depende das Tasks 01 e 03. Arquivo principal: dashboard/app.py
 
@@ -113,9 +113,19 @@ Identificar o gráfico atual como uma média histórica por dia do mês e indica
 
 ### Critérios de aceite
 
-- [ ] O gráfico histórico indica em título ou legenda que usa vários anos e informa quais foram considerados.
-- [ ] A nova visão respeita o filtro de ano e apresenta, por dia da semana, a mediana e a quantidade de datas cobertas.
-- [ ] Zeros dentro da cobertura entram no cálculo. A legenda usa “dias com faturamento zero” enquanto a loja não confirmar o calendário de funcionamento.
+- [x] O gráfico histórico indica em título ou legenda que usa vários anos e informa quais foram considerados.
+- [x] A nova visão respeita o filtro de ano e apresenta, por dia da semana, a mediana e a quantidade de datas cobertas.
+- [x] Zeros dentro da cobertura entram no cálculo. A legenda usa “dias com faturamento zero” enquanto a loja não confirmar o calendário de funcionamento.
+
+### Validação realizada
+
+- `.venv/bin/python -m unittest discover -s tests -v`: 19 testes passaram.
+- AppTest confirmou a identificação da média histórica e dos anos usados,
+  a mediana com zeros, as contagens e a atualização ao trocar o filtro de ano.
+- Na simulação, os valores 0, 10 e 100 geram mediana 10, três datas cobertas
+  e um dia com faturamento zero. Dias sem cobertura mantêm mediana ausente.
+- Execução com a base real de 2026 sem exceções: a tabela semanal soma
+  213 datas cobertas e 71 dias com faturamento zero.
 
 ## Task 05 — Ajustar o texto de sazonalidade e estoque
 
