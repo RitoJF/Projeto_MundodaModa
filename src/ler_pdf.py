@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+from tempfile import NamedTemporaryFile
 
 import pandas as pd
 import pdfplumber
@@ -32,13 +33,6 @@ def extrair_pdf(arquivo_pdf):
     """Extrai os valores diários de um PDF e devolve uma tabela."""
 
     
-    resultado_ano = re.search(r"(20\d{2})", arquivo_pdf.stem)
-
-    if not resultado_ano:
-        print(f"Ano não encontrado no nome: {arquivo_pdf.name}")
-        return pd.DataFrame()
-
-    ano = int(resultado_ano.group(1))
     registros = []
 
     
@@ -47,6 +41,35 @@ def extrair_pdf(arquivo_pdf):
             pagina.extract_text() or ""
             for pagina in pdf.pages
         )
+
+    periodo = re.search(
+        r"PER[IÍ]ODO\s+DE\s+(\d{2}/\d{2}/\d{4})\s+[ÀÁA]\s+"
+        r"(\d{2}/\d{2}/\d{4})",
+        texto,
+        flags=re.IGNORECASE,
+    )
+    if not periodo:
+        raise ValueError(
+            f"Revise {arquivo_pdf.name}: período ausente ou ilegível no cabeçalho."
+        )
+
+    try:
+        inicio, fim = (
+            pd.to_datetime(data, format="%d/%m/%Y")
+            for data in periodo.groups()
+        )
+    except ValueError as erro:
+        raise ValueError(
+            f"Revise {arquivo_pdf.name}: data inválida no período do cabeçalho."
+        ) from erro
+
+    if inicio > fim or inicio.year != fim.year:
+        raise ValueError(
+            f"Revise {arquivo_pdf.name}: o período deve estar em ordem "
+            "e pertencer a um único ano."
+        )
+
+    ano = inicio.year
 
     
     for linha in texto.splitlines():
@@ -79,7 +102,7 @@ def extrair_pdf(arquivo_pdf):
             )
 
             
-            if pd.notna(data):
+            if pd.notna(data) and inicio <= data <= fim:
                 registros.append(
                     {
                         "data": data,
@@ -90,43 +113,56 @@ def extrair_pdf(arquivo_pdf):
                     }
                 )
 
+    if not registros:
+        raise ValueError(
+            f"Revise {arquivo_pdf.name}: nenhum dado extraído dentro do período."
+        )
+
     return pd.DataFrame(registros)
 
 
-arquivos_pdf = sorted(pasta_pdfs.glob("faturamento_*.pdf"))
+def main():
+    arquivos_pdf = sorted(pasta_pdfs.glob("faturamento_*.pdf"))
 
-if not arquivos_pdf:
-    raise FileNotFoundError(
-        f"Nenhum PDF encontrado na pasta: {pasta_pdfs}"
-    )
+    if not arquivos_pdf:
+        raise FileNotFoundError(
+            f"Nenhum PDF encontrado na pasta: {pasta_pdfs}"
+        )
 
-tabelas = []
+    tabelas = []
 
-for arquivo_pdf in arquivos_pdf:
-    print(f"Lendo: {arquivo_pdf.name}")
+    for arquivo_pdf in arquivos_pdf:
+        print(f"Lendo: {arquivo_pdf.name}")
 
-    tabela = extrair_pdf(arquivo_pdf)
-
-    if not tabela.empty:
+        tabela = extrair_pdf(arquivo_pdf)
         tabelas.append(tabela)
 
-if not tabelas:
-    raise ValueError("Nenhum dado foi extraído dos PDFs.")
+    df = pd.concat(tabelas, ignore_index=True)
+    df = df.sort_values("data")
 
-df = pd.concat(tabelas, ignore_index=True)
-df = df.sort_values("data")
+    print("\nPrimeiras linhas:")
+    print(df.head())
+
+    print("\nFaturamento por ano:")
+    print(df.groupby("ano")["faturamento"].sum().round(2))
+
+    pasta_processados = projeto / "dados" / "processados"
+    pasta_processados.mkdir(parents=True, exist_ok=True)
+
+    arquivo_saida = pasta_processados / "faturamento_todos_anos.csv"
+    # Substitui o CSV somente após concluir a extração e a gravação.
+    with NamedTemporaryFile(
+        dir=pasta_processados, suffix=".csv", delete=False
+    ) as temporario:
+        caminho_temporario = Path(temporario.name)
+    try:
+        df.to_csv(caminho_temporario, index=False, encoding="utf-8-sig")
+        caminho_temporario.replace(arquivo_saida)
+    finally:
+        caminho_temporario.unlink(missing_ok=True)
+
+    print(f"\nArquivo salvo em: {arquivo_saida}")
 
 
-print("\nPrimeiras linhas:")
-print(df.head())
-
-print("\nFaturamento por ano:")
-print(df.groupby("ano")["faturamento"].sum().round(2))
-
-pasta_processados = projeto / "dados" / "processados"
-pasta_processados.mkdir(parents=True, exist_ok=True)
-
-arquivo_saida = pasta_processados / "faturamento_todos_anos.csv"
-df.to_csv(arquivo_saida, index=False, encoding="utf-8-sig")
-
-print(f"\nArquivo salvo em: {arquivo_saida}")
+if __name__ == "__main__":
+    main()
