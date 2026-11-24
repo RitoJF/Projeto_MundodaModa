@@ -13,8 +13,8 @@ dos períodos disponíveis no dashboard.
 - [x] Executar a extração atual e gerar
   `dados/processados/faturamento_todos_anos.csv`.
 
-A extração foi executada com sucesso. A conferência automática dos valores
-com os totais impressos nos PDFs ainda faz parte da Task 02.
+A extração e a conferência automática dos totais mensais e gerais foram
+executadas com sucesso para os quatro PDFs atuais.
 
 ## Ordem de execução
 
@@ -22,7 +22,7 @@ Executar 01 → 02 → 03 → 04. As tarefas 05 e 06 podem ser realizadas depois
 Marcar cada critério somente após verificar o comportamento descrito.
 Os números esperados abaixo são critérios a validar durante a implementação.
 
-Próxima tarefa: **02 — Conferir os valores extraídos com os PDFs**.
+Próxima tarefa: **03 — Calcular a cobertura do painel a partir dos dados**.
 
 ## Task 01 — Respeitar a cobertura informada no PDF
 
@@ -49,7 +49,7 @@ Extrair as datas de início e fim do cabeçalho de cada relatório e manter no C
 
 ## Task 02 — Conferir os valores extraídos com os PDFs
 
-Status: pendente.
+Status: concluída na branch `task/02-conferencia-valores`.
 
 Arquivo principal: analise/conferir_csv.py
 
@@ -57,9 +57,22 @@ Comparar automaticamente os totais mensais e gerais extraídos com os valores im
 
 ### Critérios de aceite
 
-- [ ] Os quatro relatórios atuais passam na conferência, incluindo os meses cobertos pelo relatório parcial de 2026.
-- [ ] Uma divergência identifica o PDF, o mês ou total geral, o valor esperado e o valor calculado. O comando termina com erro quando há divergência ou quando o valor de referência não pode ser lido.
-- [ ] A comparação é feita com precisão de centavos.
+- [x] Os quatro relatórios atuais passam na conferência, incluindo os meses cobertos pelo relatório parcial de 2026.
+- [x] Uma divergência identifica o PDF, o mês ou total geral, o valor esperado e o valor calculado. O comando termina com erro quando há divergência ou quando o valor de referência não pode ser lido.
+- [x] A comparação é feita com precisão de centavos.
+
+### Validação realizada
+
+- `.venv/bin/python analise/conferir_csv.py`: os 48 totais mensais e os
+  quatro totais gerais conferem; código de saída 0.
+- `.venv/bin/python -m unittest discover -s tests -v`: 12 testes passaram,
+  incluindo os cinco testes da Task 01.
+- Testes de valores deslocados entre meses, diferença de um centavo,
+  referências ilegíveis ou ausentes e datas incompatíveis com a cobertura.
+- Execução do comando em uma cópia temporária do CSV com alteração de
+  R$ 0,01: código de saída 1, com PDF, mês e valores esperado e calculado.
+- Valores monetários lidos e somados como `Decimal`, sem arredondar
+  diferenças na comparação.
 
 ## Task 03 — Calcular a cobertura do painel a partir dos dados
 
