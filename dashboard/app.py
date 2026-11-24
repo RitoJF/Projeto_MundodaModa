@@ -498,8 +498,9 @@ else:
         f"Nos anos completos ({anos_completos_usados}), "
         f"{nomes_meses[mes_pico - 1]} teve o maior faturamento médio "
         f"({formatar_reais(media_historica_mensal.max())}). "
-        f"Vale planejar o reforço do estoque antes desse pico; "
-        f"{nomes_meses[mes_anterior_ao_pico - 1]} pode ser um mês para iniciar esse planejamento, "
-        "ajustando ao prazo de entrega do fornecedor e ao estoque atual. "
-        "A análise usa faturamento como sinal de procura, não quantidade vendida ou margem."
+        f"Esse pico histórico serve de referência para programar uma revisão do estoque. "
+        f"{nomes_meses[mes_anterior_ao_pico - 1]} pode ser um mês para essa revisão, "
+        "antecipando-a conforme o prazo de entrega dos fornecedores. "
+        "Para decidir quais produtos repor e em qual quantidade, consulte as vendas "
+        "por produto, incluindo as quantidades vendidas, e o estoque disponível de cada item."
     )

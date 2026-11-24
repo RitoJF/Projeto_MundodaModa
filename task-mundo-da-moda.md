@@ -22,7 +22,7 @@ Executar 01 → 02 → 03 → 04. As tarefas 05 e 06 podem ser realizadas depois
 Marcar cada critério somente após verificar o comportamento descrito.
 Os números esperados abaixo são critérios a validar durante a implementação.
 
-Próxima tarefa: **05 — Ajustar o texto de sazonalidade e estoque**.
+Próxima tarefa: **06 — Gerar um ZIP de entrega enxuto**.
 
 ## Task 01 — Respeitar a cobertura informada no PDF
 
@@ -129,7 +129,7 @@ Identificar o gráfico atual como uma média histórica por dia do mês e indica
 
 ## Task 05 — Ajustar o texto de sazonalidade e estoque
 
-Status: pendente.
+Status: concluída na branch `task/05-sazonalidade-estoque`.
 
 Arquivo principal: dashboard/app.py
 
@@ -137,8 +137,16 @@ Explicar que meses de receita historicamente mais alta são uma referência para
 
 ### Critérios de aceite
 
-- [ ] A mensagem cita os anos usados e relaciona os picos históricos a uma possível data de revisão do estoque.
-- [ ] O texto explica quais dados adicionais são necessários para decidir a reposição por produto.
+- [x] A mensagem cita os anos usados e relaciona os picos históricos a uma possível data de revisão do estoque.
+- [x] O texto explica quais dados adicionais são necessários para decidir a reposição por produto.
+
+### Validação realizada
+
+- Painel executado com AppTest e a base real, sem exceções.
+- Mensagem conferida: cita 2023, 2024 e 2025, o pico em dezembro e novembro
+  como possível mês de revisão, considerando o prazo dos fornecedores.
+- O texto orienta consultar vendas por produto, quantidades vendidas e
+  estoque disponível de cada item para decidir a reposição.
 
 ## Task 06 — Gerar um ZIP de entrega enxuto
 
