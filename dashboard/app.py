@@ -351,7 +351,7 @@ st.caption(
 st.divider()
 
 
-st.subheader(f"Faturamento por dia de {mes_selecionado_nome.lower()}")
+st.subheader(f"Média histórica por dia do mês — {mes_selecionado_nome.lower()}")
 dados_mes = df[df["mes"] == mes_selecionado].copy()
 
 
@@ -391,6 +391,55 @@ else:
         f"Menor média: dia {dia_menor_media} ({formatar_reais(media_por_dia.min())}). "
         f"Anos considerados: {anos_usados}."
     )
+
+st.divider()
+
+
+st.subheader(f"Faturamento por dia da semana — {ano_selecionado}")
+dias_semana = [
+    "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira",
+    "Sexta-feira", "Sábado", "Domingo",
+]
+resumo_semanal = (
+    df_ano.groupby(df_ano["data"].dt.dayofweek)
+    .agg(
+        mediana=("faturamento", "median"),
+        datas_cobertas=("data", "nunique"),
+        dias_com_zero=("faturamento", lambda valores: valores.eq(0).sum()),
+    )
+    .reindex(range(7))
+)
+resumo_semanal[["datas_cobertas", "dias_com_zero"]] = (
+    resumo_semanal[["datas_cobertas", "dias_com_zero"]].fillna(0).astype(int)
+)
+dias_com_dados = resumo_semanal[resumo_semanal["datas_cobertas"] > 0]
+
+fig_semana, ax_semana = plt.subplots(figsize=(12, 4.5))
+ax_semana.bar(dias_com_dados.index, dias_com_dados["mediana"], color="#5B8FF9")
+ax_semana.set_xticks(range(7))
+ax_semana.set_xticklabels(dias_semana, rotation=25, ha="right")
+ax_semana.set_title(f"Mediana de faturamento por dia da semana em {ano_selecionado}")
+ax_semana.set_ylabel("Faturamento mediano")
+ax_semana.yaxis.set_major_formatter(FuncFormatter(formatar_eixo_reais))
+ax_semana.grid(axis="y", alpha=0.25)
+fig_semana.tight_layout()
+st.pyplot(fig_semana, use_container_width=True)
+plt.close(fig_semana)
+
+tabela_semanal = resumo_semanal.set_axis(dias_semana).rename(columns={
+    "mediana": "Mediana", "datas_cobertas": "Datas cobertas",
+    "dias_com_zero": "Dias com faturamento zero",
+}).rename_axis("Dia da semana").reset_index()
+st.dataframe(
+    tabela_semanal.style.format({"Mediana": formatar_reais}, na_rep="Sem dados"),
+    hide_index=True,
+)
+st.caption(
+    f"A análise usa todas as datas cobertas de {ano_selecionado}, "
+    "incluindo dias com faturamento zero no cálculo da mediana. "
+    "Dias da semana sem datas cobertas aparecem como sem dados. "
+    "O filtro de mês se aplica ao gráfico histórico acima."
+)
 
 st.divider()
 
