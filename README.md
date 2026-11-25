@@ -47,7 +47,7 @@ python -m pip install -r requirements.txt
 
 No Prompt de Comando (`cmd`), ative com `.venv\Scripts\activate.bat`.
 
-As dependências incluem `pandas`, `pdfplumber`, `matplotlib` e `streamlit`.
+As dependências incluem `pandas`, `pdfplumber`, `altair` e `streamlit`.
 O `pdfplumber` faz a leitura dos PDFs.
 
 ## Preparar os PDFs
@@ -178,6 +178,11 @@ Uma falha anterior ao primeiro registro de sucesso não inventa a data da
 última atualização válida. Depois de uma importação bem-sucedida, o aviso
 de falha desaparece ao recarregar a página.
 
+Passe o mouse sobre as barras ou os pontos das linhas para consultar o
+período e o valor completo em reais. Barras com faturamento zero também
+têm um marcador de hover junto ao eixo. A análise semanal inclui as contagens
+de datas cobertas e dias com faturamento zero no tooltip.
+
 O painel apresenta:
 
 - Cobertura do ano selecionado e identificação de meses e trimestres parciais.
@@ -212,6 +217,7 @@ Projeto_MundodaModa/
 │   └── conferir_csv.py       # Conferência dos totais e das datas
 ├── dashboard/
 │   ├── app.py               # Painel Streamlit
+│   ├── graficos.py          # Gráficos interativos com hover
 │   └── cobertura.py         # Cálculo dos períodos completos e parciais
 ├── dados/                   # Dados locais
 │   ├── originais/           # PDFs de entrada
