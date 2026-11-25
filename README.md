@@ -80,6 +80,12 @@ O script procura arquivos com o padrão `faturamento_*.pdf`. Se os arquivos
 baixados começarem com `VEN`, confira o ano no cabeçalho de cada relatório
 antes de renomeá-los. Evite manter cópias duplicadas do mesmo ano.
 
+Os períodos dos PDFs não podem se sobrepor. Os limites são inclusivos:
+se um relatório termina em 01/08 e outro começa em 01/08 do mesmo ano,
+ambos cobrem esse dia. O importador identifica os dois arquivos e o
+intervalo em conflito, mesmo quando os valores são zero. Ao receber uma
+versão atualizada, substitua o arquivo antigo em vez de manter os dois.
+
 O formato esperado contém:
 
 - Cabeçalho com o período, como
@@ -118,8 +124,9 @@ Antes de substituir o CSV, o script grava um arquivo temporário e confere
 as datas cobertas e os totais mensais e gerais com os valores dos PDFs,
 com precisão de centavos.
 
-Se houver período inválido, datas ausentes ou duplicadas, divergência nos
-totais ou referência ilegível, a importação é interrompida com uma mensagem
+Se houver período inválido, sobreposição entre relatórios, datas ausentes
+ou duplicadas, divergência nos totais ou referência ilegível, a importação
+é interrompida com uma mensagem
 de erro e código de saída `1`. O arquivo que precisa de revisão é indicado,
 o temporário é removido e o último CSV válido é preservado. A substituição
 acontece somente quando todas as conferências passam.
