@@ -91,7 +91,7 @@ class StatusImportacaoTest(unittest.TestCase):
         with (
             patch("src.status_importacao.ler_status", return_value=status),
             patch("pandas.read_csv", return_value=dados),
-            patch("streamlit.pyplot"),
+            patch("streamlit.altair_chart"),
         ):
             app = AppTest.from_file(str(Path("dashboard/app.py").resolve())).run(timeout=30)
             self.assertFalse(app.exception)

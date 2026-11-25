@@ -50,16 +50,17 @@ class CoberturaTest(unittest.TestCase):
     def executar_painel(self, dados):
         graficos = []
 
-        def capturar(figura, **kwargs):
-            eixo = figura.axes[0]
+        def capturar(grafico, **kwargs):
+            dados = grafico.data
             graficos.append({
-                "rotulos": [rotulo.get_text() for rotulo in eixo.get_xticklabels()],
-                "linhas": [list(linha.get_ydata()) for linha in eixo.lines],
+                "rotulos": list(dados["periodo"]),
+                "linhas": [list(grupo["faturamento"]) for _, grupo in dados.groupby("ano")]
+                if "ano" in dados else [],
             })
 
         with (
             patch("pandas.read_csv", return_value=dados),
-            patch("streamlit.pyplot", side_effect=capturar),
+            patch("streamlit.altair_chart", side_effect=capturar),
         ):
             app = AppTest.from_file(str(Path("dashboard/app.py").resolve())).run(timeout=30)
         self.assertFalse(app.exception)

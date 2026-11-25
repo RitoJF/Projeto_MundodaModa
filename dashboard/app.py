@@ -1,8 +1,6 @@
 from pathlib import Path
 import sys
 
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter
 import pandas as pd
 import streamlit as st
 
@@ -11,6 +9,7 @@ if str(projeto) not in sys.path:
     sys.path.insert(0, str(projeto))
 
 from dashboard.cobertura import resumir_periodos
+from dashboard.graficos import barras, formatar_reais, linhas
 from src.status_importacao import formatar_data, ler_status
 
 
@@ -119,6 +118,11 @@ st.markdown(
         border-color: #2c2e38;
     }
 
+    .stElementContainer:has([data-testid="stVegaLiteChart"])
+    [data-testid="stElementToolbar"] {
+        display: none;
+    }
+
     [data-testid="stAlert"] {
         background-color: #1d2928;
         border: 1px solid #31534b;
@@ -127,22 +131,6 @@ st.markdown(
     </style>
     """,
     unsafe_allow_html=True,
-)
-
-
-plt.rcParams.update(
-    {
-        "figure.facecolor": "#0e1117",
-        "axes.facecolor": "#0e1117",
-        "axes.edgecolor": "#454754",
-        "axes.labelcolor": "#c7cad3",
-        "text.color": "#f1f3f8",
-        "xtick.color": "#c7cad3",
-        "ytick.color": "#c7cad3",
-        "grid.color": "#30323c",
-        "legend.facecolor": "#20222b",
-        "legend.edgecolor": "#3a3c48",
-    }
 )
 
 
@@ -191,21 +179,6 @@ nomes_meses = [
 
 resumo_mensal = resumir_periodos(df, "M")
 resumo_anual = resumir_periodos(df, "Y")
-
-
-def formatar_reais(valor):
-    return (
-        f"R$ {valor:,.2f}"
-        .replace(",", "X")
-        .replace(".", ",")
-        .replace("X", ".")
-    )
-
-
-
-def formatar_eixo_reais(valor, posicao):
-    return f"R$ {valor:,.0f}".replace(",", ".")
-
 
 
 st.markdown(
@@ -281,28 +254,11 @@ coluna_mensal, coluna_trimestral = st.columns(2)
 with coluna_mensal:
     st.subheader("Faturamento por mês")
 
-    fig_mensal, ax_mensal = plt.subplots(figsize=(9, 5))
-
-    ax_mensal.bar(
-        faturamento_mensal.index,
-        faturamento_mensal.values,
-        color="#6C63FF",
+    st.altair_chart(
+        barras(rotulos_meses, faturamento_mensal.values, "#6C63FF",
+               contexto=str(ano_selecionado)),
+        width="stretch", theme=None,
     )
-    ax_mensal.set_xticks(faturamento_mensal.index)
-    ax_mensal.set_xticklabels(
-        rotulos_meses,
-        rotation=35,
-        ha="right",
-    )
-    ax_mensal.yaxis.set_major_formatter(
-        FuncFormatter(formatar_eixo_reais)
-    )
-    ax_mensal.set_ylabel("Faturamento")
-    ax_mensal.grid(axis="y", alpha=0.25)
-    fig_mensal.tight_layout()
-
-    st.pyplot(fig_mensal, use_container_width=True)
-    plt.close(fig_mensal)
 
 
 with coluna_trimestral:
@@ -317,24 +273,11 @@ with coluna_trimestral:
         for periodo, linha in trimestres_ano.iterrows()
     ]
 
-    fig_trimestral, ax_trimestral = plt.subplots(figsize=(9, 5))
-
-    ax_trimestral.bar(
-        faturamento_trimestral.index,
-        faturamento_trimestral.values,
-        color="#35A178",
+    st.altair_chart(
+        barras(nomes_trimestres, faturamento_trimestral.values, "#35A178",
+               contexto=str(ano_selecionado)),
+        width="stretch", theme=None,
     )
-    ax_trimestral.set_xticks(faturamento_trimestral.index)
-    ax_trimestral.set_xticklabels(nomes_trimestres)
-    ax_trimestral.yaxis.set_major_formatter(
-        FuncFormatter(formatar_eixo_reais)
-    )
-    ax_trimestral.set_ylabel("Faturamento")
-    ax_trimestral.grid(axis="y", alpha=0.25)
-    fig_trimestral.tight_layout()
-
-    st.pyplot(fig_trimestral, use_container_width=True)
-    plt.close(fig_trimestral)
 
 
 st.divider()
@@ -346,33 +289,17 @@ faturamento_por_ano_mes = resumo_mensal[resumo_mensal["completo"]].copy()
 faturamento_por_ano_mes["ano"] = faturamento_por_ano_mes.index.year
 faturamento_por_ano_mes["mes"] = faturamento_por_ano_mes.index.month
 
-fig_comparacao, ax_comparacao = plt.subplots(figsize=(12, 5))
-
+# Mantém lacunas em meses que não têm cobertura completa.
+series_comparacao = []
 for ano, dados_ano in faturamento_por_ano_mes.groupby("ano"):
-    dados_ano = dados_ano.set_index("mes").reindex(range(1, 13))
-
-    
-    ax_comparacao.plot(
-        dados_ano.index,
-        dados_ano["faturamento"],
-        marker="o",
-        linewidth=2,
-        label=str(ano),
-    )
-
-ax_comparacao.set_xticks(range(1, 13))
-ax_comparacao.set_xticklabels(nomes_meses, rotation=35, ha="right")
-ax_comparacao.yaxis.set_major_formatter(
-    FuncFormatter(formatar_eixo_reais)
+    serie = dados_ano.set_index("mes").reindex(range(1, 13))
+    serie["ano"] = ano
+    series_comparacao.append(serie.reset_index())
+dados_comparacao = (
+    pd.concat(series_comparacao, ignore_index=True)
+    if series_comparacao else pd.DataFrame(columns=["mes", "ano", "faturamento"])
 )
-ax_comparacao.set_ylabel("Faturamento")
-ax_comparacao.grid(alpha=0.25)
-if not faturamento_por_ano_mes.empty:
-    ax_comparacao.legend(title="Ano")
-fig_comparacao.tight_layout()
-
-st.pyplot(fig_comparacao, use_container_width=True)
-plt.close(fig_comparacao)
+st.altair_chart(linhas(dados_comparacao, nomes_meses), width="stretch", theme=None)
 
 st.caption(
     "A comparação usa somente meses completos de cada ano. "
@@ -401,22 +328,18 @@ else:
         for dia in media_por_dia.index
     ]
 
-    fig_dias, ax_dias = plt.subplots(figsize=(12, 4.5))
-    ax_dias.bar(media_por_dia.index, media_por_dia.values, color=cores_dias)
-    ax_dias.set_title("Média de faturamento por dia do mês nos anos disponíveis")
-    ax_dias.set_xlabel("Dia do mês")
-    ax_dias.set_ylabel("Faturamento médio")
-    ax_dias.set_xticks(media_por_dia.index)
-    ax_dias.yaxis.set_major_formatter(FuncFormatter(formatar_eixo_reais))
-    ax_dias.grid(axis="y", alpha=0.25)
-    fig_dias.tight_layout()
-
-    st.pyplot(fig_dias, use_container_width=True)
-    plt.close(fig_dias)
-
     anos_usados = ", ".join(
         str(ano) for ano in sorted(dados_mes["ano"].unique())
     )
+    st.altair_chart(
+        barras(
+            [str(dia) for dia in media_por_dia.index], media_por_dia.values, cores_dias,
+            titulo="Média de faturamento por dia do mês nos anos disponíveis",
+            titulo_y="Faturamento médio", contexto=f"Anos: {anos_usados}",
+        ),
+        width="stretch", theme=None,
+    )
+
     st.caption(
         f"Maior média: dia {dia_maior_media} ({formatar_reais(media_por_dia.max())}). "
         f"Menor média: dia {dia_menor_media} ({formatar_reais(media_por_dia.min())}). "
@@ -445,17 +368,19 @@ resumo_semanal[["datas_cobertas", "dias_com_zero"]] = (
 )
 dias_com_dados = resumo_semanal[resumo_semanal["datas_cobertas"] > 0]
 
-fig_semana, ax_semana = plt.subplots(figsize=(12, 4.5))
-ax_semana.bar(dias_com_dados.index, dias_com_dados["mediana"], color="#5B8FF9")
-ax_semana.set_xticks(range(7))
-ax_semana.set_xticklabels(dias_semana, rotation=25, ha="right")
-ax_semana.set_title(f"Mediana de faturamento por dia da semana em {ano_selecionado}")
-ax_semana.set_ylabel("Faturamento mediano")
-ax_semana.yaxis.set_major_formatter(FuncFormatter(formatar_eixo_reais))
-ax_semana.grid(axis="y", alpha=0.25)
-fig_semana.tight_layout()
-st.pyplot(fig_semana, use_container_width=True)
-plt.close(fig_semana)
+st.altair_chart(
+    barras(
+        [dias_semana[dia] for dia in dias_com_dados.index],
+        dias_com_dados["mediana"].values, "#5B8FF9",
+        titulo=f"Mediana de faturamento por dia da semana em {ano_selecionado}",
+        titulo_y="Faturamento mediano", contexto=str(ano_selecionado),
+        extras={
+            "Datas cobertas": dias_com_dados["datas_cobertas"],
+            "Dias com faturamento zero": dias_com_dados["dias_com_zero"],
+        },
+    ),
+    width="stretch", theme=None,
+)
 
 tabela_semanal = resumo_semanal.set_axis(dias_semana).rename(columns={
     "mediana": "Mediana", "datas_cobertas": "Datas cobertas",
@@ -502,27 +427,18 @@ else:
         for mes in media_historica_mensal.index
     ]
 
-    fig_sazonal, ax_sazonal = plt.subplots(figsize=(12, 4.5))
-    ax_sazonal.bar(
-        media_historica_mensal.index,
-        media_historica_mensal.values,
-        color=cores_sazonais,
-    )
-    ax_sazonal.set_title("Faturamento médio por mês nos anos completos")
-    ax_sazonal.set_xlabel("Mês")
-    ax_sazonal.set_ylabel("Faturamento médio")
-    ax_sazonal.set_xticks(range(1, 13))
-    ax_sazonal.set_xticklabels(nomes_meses, rotation=30, ha="right")
-    ax_sazonal.yaxis.set_major_formatter(FuncFormatter(formatar_eixo_reais))
-    ax_sazonal.grid(axis="y", alpha=0.25)
-    fig_sazonal.tight_layout()
-
-    st.pyplot(fig_sazonal, use_container_width=True)
-    plt.close(fig_sazonal)
-
     anos_completos_usados = ", ".join(
         str(ano) for ano in sorted(df_anos_completos["ano"].unique())
     )
+    st.altair_chart(
+        barras(
+            nomes_meses, media_historica_mensal.values, cores_sazonais,
+            titulo="Faturamento médio por mês nos anos completos",
+            titulo_y="Faturamento médio", contexto=f"Anos completos: {anos_completos_usados}",
+        ),
+        width="stretch", theme=None,
+    )
+
     mes_anterior_ao_pico = 12 if mes_pico == 1 else mes_pico - 1
 
     st.info(

@@ -18,16 +18,15 @@ class AnaliseDiasTest(unittest.TestCase):
         })
         graficos = []
 
-        def capturar(figura, **kwargs):
-            eixo = figura.axes[0]
+        def capturar(grafico, **kwargs):
             graficos.append({
-                "titulo": eixo.get_title(),
-                "valores": [barra.get_height() for barra in eixo.patches],
+                "titulo": grafico.title,
+                "valores": list(grafico.data["faturamento"]),
             })
 
         with (
             patch("pandas.read_csv", return_value=dados),
-            patch("streamlit.pyplot", side_effect=capturar),
+            patch("streamlit.altair_chart", side_effect=capturar),
         ):
             app = AppTest.from_file(str(Path("dashboard/app.py").resolve())).run(timeout=30)
             self.assertFalse(app.exception)
