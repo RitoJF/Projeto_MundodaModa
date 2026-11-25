@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import sys
 from tempfile import NamedTemporaryFile
 
 import pandas as pd
@@ -8,6 +9,13 @@ import pdfplumber
 
 
 projeto = Path(__file__).resolve().parent.parent
+
+# Permite reutilizar a conferência também com `python src/ler_pdf.py`.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(projeto))
+
+from analise.conferir_csv import conferir_relatorio, ler_csv
+from src.status_importacao import registrar_resultado
 
 
 pasta_pdfs = projeto / "dados" / "originais"
@@ -121,7 +129,7 @@ def extrair_pdf(arquivo_pdf):
     return pd.DataFrame(registros)
 
 
-def main():
+def importar():
     arquivos_pdf = sorted(pasta_pdfs.glob("faturamento_*.pdf"))
 
     if not arquivos_pdf:
@@ -150,13 +158,30 @@ def main():
     pasta_processados.mkdir(parents=True, exist_ok=True)
 
     arquivo_saida = pasta_processados / "faturamento_todos_anos.csv"
-    # Substitui o CSV somente após concluir a extração e a gravação.
+    # Valida o arquivo temporário antes de substituir o último CSV válido.
     with NamedTemporaryFile(
         dir=pasta_processados, suffix=".csv", delete=False
     ) as temporario:
         caminho_temporario = Path(temporario.name)
     try:
         df.to_csv(caminho_temporario, index=False, encoding="utf-8-sig")
+        dados_conferencia = ler_csv(caminho_temporario)
+        for arquivo_pdf in arquivos_pdf:
+            try:
+                erros, _ = conferir_relatorio(arquivo_pdf, dados_conferencia)
+            except Exception as erro:
+                raise ValueError(
+                    f"Importação cancelada: {arquivo_pdf.name}: "
+                    f"não foi possível conferir o relatório: {erro}. "
+                    "O CSV anterior foi preservado."
+                ) from erro
+            if erros:
+                raise ValueError(
+                    f"Importação cancelada: {arquivo_pdf.name}: "
+                    + "; ".join(erros)
+                    + ". O CSV anterior foi preservado."
+                )
+            print(f"Conferido: {arquivo_pdf.name}")
         caminho_temporario.replace(arquivo_saida)
     finally:
         caminho_temporario.unlink(missing_ok=True)
@@ -164,5 +189,28 @@ def main():
     print(f"\nArquivo salvo em: {arquivo_saida}")
 
 
+def main():
+    caminho_status = projeto / "dados/processados/status_importacao.json"
+    try:
+        importar()
+    except Exception as erro:
+        try:
+            registrar_resultado(caminho_status, sucesso=False, detalhe=str(erro))
+        except OSError as erro_status:
+            print(f"Não foi possível registrar a falha: {erro_status}", file=sys.stderr)
+        raise
+    else:
+        try:
+            registrar_resultado(caminho_status, sucesso=True)
+        except OSError as erro:
+            raise OSError(
+                f"O CSV foi atualizado, mas não foi possível registrar o status: {erro}"
+            ) from erro
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, OSError) as erro:
+        print(f"ERRO: {erro}", file=sys.stderr)
+        raise SystemExit(1)

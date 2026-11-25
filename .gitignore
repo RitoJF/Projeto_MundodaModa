@@ -2,3 +2,4 @@
 /dados/processados/faturamento_todos_anos.csv
 __pycache__/
 .venv/
+/dados/processados/status_importacao.json
