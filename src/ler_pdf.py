@@ -126,7 +126,26 @@ def extrair_pdf(arquivo_pdf):
             f"Revise {arquivo_pdf.name}: nenhum dado extraído dentro do período."
         )
 
-    return pd.DataFrame(registros)
+    tabela = pd.DataFrame(registros)
+    tabela.attrs["periodo"] = (inicio, fim)
+    return tabela
+
+
+def validar_sobreposicao(periodos):
+    """Os limites dos relatórios são inclusivos, mesmo em dias com zero."""
+    ordenados = sorted(periodos, key=lambda periodo: periodo[0])
+    for anterior, atual in zip(ordenados, ordenados[1:]):
+        _, fim_anterior, arquivo_anterior = anterior
+        inicio_atual, fim_atual, arquivo_atual = atual
+        if inicio_atual <= fim_anterior:
+            fim_conflito = min(fim_anterior, fim_atual)
+            raise ValueError(
+                f"Importação cancelada: sobreposição entre {arquivo_anterior.name} "
+                f"e {arquivo_atual.name}, de {inicio_atual:%d/%m/%Y} "
+                f"a {fim_conflito:%d/%m/%Y}. "
+                "Mantenha somente o relatório correto para as datas em conflito. "
+                "O CSV anterior foi preservado."
+            )
 
 
 def importar():
@@ -138,11 +157,15 @@ def importar():
         )
 
     tabelas = []
+    periodos = []
 
     for arquivo_pdf in arquivos_pdf:
         print(f"Lendo: {arquivo_pdf.name}")
 
         tabela = extrair_pdf(arquivo_pdf)
+        inicio, fim = tabela.attrs["periodo"]
+        periodos.append((inicio, fim, arquivo_pdf))
+        validar_sobreposicao(periodos)
         tabelas.append(tabela)
 
     df = pd.concat(tabelas, ignore_index=True)
