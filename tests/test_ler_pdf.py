@@ -103,7 +103,82 @@ class ExtracaoTest(unittest.TestCase):
                 with self.assertRaises(OSError):
                     ler_pdf.main()
             self.assertEqual(saida.read_bytes(), b"ultimo csv valido\n")
-            self.assertEqual(list(saida.parent.iterdir()), [saida])
+            self.assertEqual(
+                set(saida.parent.iterdir()),
+                {saida, saida.parent / "status_importacao.json"},
+            )
+
+
+class ValidacaoImportacaoTest(unittest.TestCase):
+    def executar_importacao(self, texto, erro_esperado=None):
+        with TemporaryDirectory() as pasta:
+            projeto = Path(pasta)
+            originais = projeto / "dados/originais"
+            originais.mkdir(parents=True)
+            (originais / "faturamento_2026.pdf").touch()
+            saida = projeto / "dados/processados/faturamento_todos_anos.csv"
+            saida.parent.mkdir(parents=True)
+            anterior = b"ultimo csv valido\n"
+            saida.write_bytes(anterior)
+            with (
+                patch.object(ler_pdf, "projeto", projeto),
+                patch.object(ler_pdf, "pasta_pdfs", originais),
+                patch.object(ler_pdf.pdfplumber, "open", return_value=simular_pdf(texto)),
+                redirect_stdout(StringIO()),
+            ):
+                if erro_esperado:
+                    with self.assertRaisesRegex(ValueError, erro_esperado) as erro:
+                        ler_pdf.main()
+                    self.assertIn("faturamento_2026.pdf", str(erro.exception))
+                    self.assertIn("CSV anterior foi preservado", str(erro.exception))
+                    self.assertEqual(saida.read_bytes(), anterior)
+                else:
+                    ler_pdf.main()
+                    df = pd.read_csv(saida)
+                    self.assertEqual(len(df), 2)
+                    self.assertEqual(list(df["faturamento"]), [0.10, 0.20])
+                self.assertEqual(
+                    set(saida.parent.iterdir()),
+                    {saida, saida.parent / "status_importacao.json"},
+                )
+
+    def relatorio(self):
+        return (
+            "PERÍODO DE 01/01/2026 À 02/01/2026\n"
+            "01 0,10 " + " ".join(["0,00"] * 11) + "\n"
+            "02 0,20 " + " ".join(["0,00"] * 11) + "\n"
+            "0,30 " + " ".join(["0,00"] * 11) + "\n"
+            "TOTAL GERAL: 0,30\n"
+        )
+
+    def test_csv_validado_substitui_anterior(self):
+        self.executar_importacao(self.relatorio())
+
+    def test_divergencia_mensal_preserva_csv(self):
+        self.executar_importacao(
+            self.relatorio().replace("0,30 0,00", "0,31 0,00"),
+            r"janeiro: esperado R\$ 0,31; calculado R\$ 0,30",
+        )
+
+    def test_divergencia_geral_preserva_csv(self):
+        self.executar_importacao(
+            self.relatorio().replace("TOTAL GERAL: 0,30", "TOTAL GERAL: 0,31"),
+            r"total geral: esperado R\$ 0,31; calculado R\$ 0,30",
+        )
+
+    def test_dia_zero_ausente_preserva_csv_mesmo_com_totais_corretos(self):
+        texto = self.relatorio().replace("02/01/2026", "03/01/2026")
+        self.executar_importacao(texto, "datas do CSV não correspondem")
+
+    def test_dia_duplicado_preserva_csv(self):
+        texto = self.relatorio().replace("TOTAL GERAL:", linha(1) + "\nTOTAL GERAL:")
+        self.executar_importacao(texto, "datas do CSV não correspondem")
+
+    def test_total_ilegivel_preserva_csv(self):
+        self.executar_importacao(
+            self.relatorio().replace("TOTAL GERAL: 0,30", "TOTAL GERAL: ilegível"),
+            "total geral ausente, ilegível ou ambíguo",
+        )
 
 
 if __name__ == "__main__":

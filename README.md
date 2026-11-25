@@ -93,6 +93,8 @@ da leitura; o projeto não executa OCR.
 
 Os PDFs originais e o CSV gerado são ignorados pelo Git. Eles não acompanham
 o clone do repositório: disponibilize os relatórios localmente.
+O arquivo local `dados/processados/status_importacao.json` também é ignorado
+pelo Git e é criado automaticamente pelo importador.
 
 ## Processar os relatórios
 
@@ -112,13 +114,22 @@ O CSV contém as colunas `data`, `ano`, `mes`, `dia` e `faturamento`.
 Somente datas dentro do período do cabeçalho são incluídas, com as datas
 inicial e final. Dias com faturamento zero dentro da cobertura são mantidos.
 
-Se um período estiver ausente, ilegível ou inválido, o script interrompe
-a extração e identifica o arquivo que precisa de revisão. O último CSV
-válido é preservado; a substituição acontece somente após a extração e
-a gravação completas.
+Antes de substituir o CSV, o script grava um arquivo temporário e confere
+as datas cobertas e os totais mensais e gerais com os valores dos PDFs,
+com precisão de centavos.
+
+Se houver período inválido, datas ausentes ou duplicadas, divergência nos
+totais ou referência ilegível, a importação é interrompida com uma mensagem
+de erro e código de saída `1`. O arquivo que precisa de revisão é indicado,
+o temporário é removido e o último CSV válido é preservado. A substituição
+acontece somente quando todas as conferências passam.
 
 Ao receber um relatório atualizado, substitua o PDF do ano correspondente,
 execute a extração novamente e faça a conferência abaixo.
+
+Cada tentativa registra o resultado e a data no arquivo de status. Em caso
+de falha, o motivo técnico aparece no terminal e fica no campo
+`ultima_tentativa.detalhe` desse arquivo para consulta pela manutenção.
 
 ## Conferir os valores
 
@@ -148,6 +159,17 @@ python -m streamlit run dashboard/app.py
 Acesse [o dashboard local](http://localhost:8501) no navegador. Para encerrar
 o servidor, pressione `Ctrl+C` no terminal. Ao abrir outro terminal,
 ative novamente o ambiente virtual antes de executar os comandos.
+
+Após executar uma importação, recarregue a página do painel para consultar
+o resultado. O painel informa a data da última atualização válida. Se a
+última tentativa falhou, exibe um aviso simples e informa que os dados
+anteriores foram mantidos, sem mostrar os detalhes técnicos ao usuário.
+Os horários são exibidos no fuso de Campo Grande.
+
+Se ainda não houver CSV, o painel informa que não há dados disponíveis.
+Uma falha anterior ao primeiro registro de sucesso não inventa a data da
+última atualização válida. Depois de uma importação bem-sucedida, o aviso
+de falha desaparece ao recarregar a página.
 
 O painel apresenta:
 
@@ -188,7 +210,8 @@ Projeto_MundodaModa/
 │   ├── originais/           # PDFs de entrada
 │   └── processados/         # CSV gerado pela extração
 ├── src/
-│   └── ler_pdf.py           # Extração dos valores diários
+│   ├── ler_pdf.py           # Extração e validação dos valores diários
+│   └── status_importacao.py # Registro local das tentativas de atualização
 ├── tests/                   # Testes automatizados
 ├── requirements.txt         # Dependências Python
 └── task-mundo-da-moda.md     # Tarefas e validações realizadas

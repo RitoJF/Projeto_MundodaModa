@@ -1,11 +1,17 @@
 from pathlib import Path
+import sys
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import pandas as pd
 import streamlit as st
 
+projeto = Path(__file__).resolve().parent.parent
+if str(projeto) not in sys.path:
+    sys.path.insert(0, str(projeto))
+
 from dashboard.cobertura import resumir_periodos
+from src.status_importacao import formatar_data, ler_status
 
 
 
@@ -140,7 +146,6 @@ plt.rcParams.update(
 )
 
 
-projeto = Path(__file__).resolve().parent.parent
 arquivo_csv = (
     projeto
     / "dados"
@@ -149,7 +154,33 @@ arquivo_csv = (
 )
 
 
-df = pd.read_csv(arquivo_csv, parse_dates=["data"])
+try:
+    df = pd.read_csv(arquivo_csv, parse_dates=["data"])
+except FileNotFoundError:
+    df = None
+
+try:
+    status_importacao = ler_status(projeto / "dados/processados/status_importacao.json")
+    ultima_tentativa = status_importacao.get("ultima_tentativa", {})
+    ultima_valida = status_importacao.get("ultima_atualizacao_valida")
+    data_valida = formatar_data(ultima_valida) if ultima_valida else None
+    if ultima_tentativa.get("resultado") == "falha":
+        data_falha = formatar_data(ultima_tentativa["data_hora"])
+        st.warning(f"Não foi possível atualizar os dados na tentativa de {data_falha}.")
+        if df is not None:
+            st.caption(
+                "Os dados da última atualização válida foram mantidos. "
+                + (f"Atualizados em {data_valida}." if data_valida else
+                   "A data dessa atualização ainda não foi registrada.")
+            )
+    elif data_valida:
+        st.caption(f"Última atualização válida: {data_valida} (horário de Campo Grande).")
+except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    st.warning("Não foi possível consultar o status da atualização dos dados.")
+
+if df is None:
+    st.error("Ainda não há dados disponíveis. Aguarde uma atualização bem-sucedida.")
+    st.stop()
 
 nomes_meses = [
     "Janeiro", "Fevereiro", "Março", "Abril",
